@@ -1,0 +1,446 @@
+---
+title: 'Task 4: Halloween Candy Survey Analysis'
+output:
+  html_document:
+    df_print: paged
+---
+
+The three data set have been cleaned.
+
+First I am going to load the library I will be using:
+
+
+```{r}
+library(tidyverse)
+library(stringr)
+library(here)
+```
+
+
+I have written the three cleaned data set in .csv file and saved them in the 
+clean_data folder.
+
+I am using the read_csv function along with the here to read them in this .Rmd
+
+I am saving each data set in a new variable called candy_data_YEAR
+
+```{r}
+candy_data_2015 <- read_csv(here("clean_data/candy_data_2015_cleaned.csv"))
+candy_data_2016 <- read_csv(here("clean_data/candy_data_2016_cleaned.csv"))
+candy_data_2017 <- read_csv(here("clean_data/candy_data_2017_cleaned.csv")) 
+```
+Using the dim() function to get the data sets dimension 
+
+```{r}
+dim(candy_data_2015)  
+dim(candy_data_2016)  
+dim(candy_data_2017) 
+```
+Now time to join them, in the cleaning script I set common columns between the
+three data sets ("id", "candy", "joy_or_despair", "age", "going_out"). 
+
+Hopefully they will match well.
+
+I'll do a full_join between candy_data_2015 and candy_data_2016, saving the 
+resulting table in a new variable called candy_2015_and_2016_joined
+
+```{r}
+candy_2015_and_2016_joined <- full_join(candy_data_2015, candy_data_2016)
+```
+
+```{r}
+candy_2015_and_2016_joined
+```
+Now, another full join to combine the new data set with the candy_data_2017.
+I'll save the result in a new variable called candy_data_full_joined.
+
+
+```{r}
+candy_data_full_joined <- full_join(candy_2015_and_2016_joined, candy_data_2017)
+```
+
+```{r}
+candy_data_full_joined
+```
+Time to go through the questions.
+
+
+## What is the total number of candy ratings given across the three years? 
+(Number of candy ratings, not the number of raters. Don’t count missing values)
+
+```{r}
+
+# I am doing a sum of the character in the column joy_or_despair, where the 
+# ratings are stored. I will exclude NAs.
+
+total_number_of_candy_ratings <- sum(!is.na(
+  candy_data_full_joined$joy_or_despair))
+
+total_number_of_candy_ratings
+```
+
+There are 762,355 ratings.
+
+##What was the average age of people who are going out trick or treating?
+
+```{r}
+avg_age_going_out <- candy_data_full_joined %>% 
+  filter(going_out == "Yes" ) %>% #first, I need just the "Yes" from the going out column                
+  drop_na(age) # dropping NAs
+
+# Age column needs to be numeric if I want to calculate the average
+
+sapply(candy_data_full_joined, class) # checking columns classes with the sapply() function
+
+# the age column is character column, I need to convert this but first I need to get rid of any non-numeric character.
+
+avg_age_going_out <- avg_age_going_out %>% 
+  mutate(age = str_remove_all(age,"[^[:digit:].]")) # removing alphabetic character and keeping just numbers and decimals
+
+age_numeric_going_out <- avg_age_going_out %>% # converting the age column using mutate() and as.numeric() function
+  mutate(age = as.numeric(age))                
+
+age_numeric_going_out %>% # I just want to double check if there are any off the scale numbers
+  count(age) %>% 
+  view()
+
+# and indeed there are, some people are several hundred years old and although they could be vampires I don't think they would know much about candies 
+
+age_numeric_going_out <- age_numeric_going_out %>% 
+  filter(age < 99)
+
+# I could have ventured in another REGEX to get rid of off scale age but I have already spent plenty of time on the above REGEX, so I decided to include just people under 99 years of age. I think the chances someone older than this was interviewed about candies are slim.
+  
+mean(age_numeric_going_out$age, na.rm = TRUE) # calculating the average with the man function
+
+```
+
+The average age of people going out in Hallowen is 35
+
+
+## What was the average age of people who are not going trick or treating?
+
+```{r}
+
+## basically, same process as above. Just filtering the "No" in the going_out column this time
+
+avg_age_not_going_out <- candy_data_full_joined %>% 
+  filter(going_out == "No" ) %>% 
+  drop_na(age) 
+
+
+avg_age_not_going_out <- avg_age_not_going_out %>% 
+  mutate(age = str_remove_all(age,"[^[:digit:].]"))
+
+
+age_numeric_not_going_out <- avg_age_not_going_out %>% 
+  mutate(age = as.numeric(age))
+
+age_numeric_not_going_out <- age_numeric_not_going_out %>%
+  filter(age < 99)
+  
+
+age_numeric_not_going_out %>% 
+  count(age) %>% 
+  view()
+  
+mean(age_numeric_not_going_out$age, na.rm = TRUE)
+
+```
+The average age of people NOT going out in Hallowen is 39
+
+##For each of joy, despair and meh, which candy bar revived the most of these 
+ratings?
+
+```{r}
+candy_data_full_joined %>% #checking candies names and types
+  count(candy) %>% 
+  view()
+
+#This was a tough one. The question asked for candy BAR, not just candy.
+#I could have included all the candies and sweets excluding inedible stuff like Vicodin or other comedian's answers or jump on Google to check how many of the items in the list are actually candy "bars".
+
+#I chose the latter and after some time I ended up with the list filtered below.
+
+candy_bars <- candy_data_full_joined %>% 
+  filter(candy == c("100Grand Bar", "Any full-sized candy bar", "Bonkers",
+                   "Bonkers (the candy)", "Butterfinger", "Caramellos",
+                   "Dark Chocolate Hershey", "Dove Bars", "Heath Bar",
+                   "Hershey's Dark Chocolate", "Hershey’s Milk Chocolate",
+                   "Kinder Happy Hippo", "Kit Kat", "LaffyTaffy", "Mars",
+                   "Milky Way", "Mr. Goodbar", "Nestle Crunch",
+                   "Peanut Butter Bars", "Reggie Jackson Bar", "Snickers",
+                   "Take 5", "Three Musketeers", "Twix","Whatchamacallit Bars",
+                   "Starburst"
+                   )
+         )
+
+candy_bars_grouped <- candy_bars %>% 
+  group_by(candy, joy_or_despair) # grouping candy with the rating columns
+
+joy_max <- summarise(candy_bars_grouped, vote_count = n()) %>%#summarising the grouped pair and saving the result in a new column called vote_count
+  filter(joy_or_despair == "JOY") %>% 
+  arrange(desc(vote_count))     #filtering JOY in joy_or_despair column and saving everything in new variable: joy_max  
+
+joy_max
+
+
+#same process for the other two ratings:
+
+meh_max <- summarise(candy_bars_grouped, vote_count = n()) %>% 
+  filter(joy_or_despair == "MEH") %>% 
+  arrange(desc(vote_count))
+
+meh_max
+
+# Please note there's no meh data from 2015
+
+despair_max <- summarise(candy_bars_grouped, vote_count = n()) %>% 
+  filter(joy_or_despair == "DESPAIR") %>% 
+  arrange(desc(vote_count))
+
+despair_max
+
+```
+Twix is the most favorite candy bar with 314 JOY votes.
+Hershey’s Milk Chocolate and LaffyTaffy share 68 MEH votes.
+Kinder Happy Hippo is not very popular, 194 DESPAIR votes
+
+
+## How many people rated Starburst as despair?
+
+```{r}
+despair_max %>% 
+  filter(candy == "Starburst")
+
+```
+70 people rated Starbust as despair.
+
+## For the next three questions, count despair as -1, joy as +1, and meh as 0.
+
+## What was the most popular candy bar by this rating system for each gender in 
+the dataset ?
+
+```{r}
+
+candy_bar_rating_score <-  candy_bars_grouped %>% 
+  mutate(joy_or_despair = str_replace_all(joy_or_despair, "DESPAIR", "-1"),
+         joy_or_despair = str_replace_all(joy_or_despair, "MEH", "0"),
+         joy_or_despair = str_replace_all(joy_or_despair, "JOY", "1"))
+
+# using mutate along str_replace_all to rename each grade with the new rating system
+
+male_candy_bar <- candy_bar_rating_score %>% 
+  filter(gender == "Male") 
+
+female_candy_bar <- candy_bar_rating_score %>% 
+  filter(gender == "Female")
+
+#creating two new variables for each gender
+
+
+male_favourite_candy_bar <- male_candy_bar %>% 
+  filter(joy_or_despair == "1") %>% 
+  summarise(plus_one_count = n()) %>% 
+  arrange(desc(plus_one_count)) 
+
+male_favourite_candy_bar
+
+female_favourite_candy_bar <- female_candy_bar %>% 
+  filter(joy_or_despair == "1") %>% 
+  summarise(plus_one_count = n()) %>% 
+  arrange(desc(plus_one_count)) 
+
+female_favourite_candy_bar
+
+#calculating the favourite candy for each gender and saving the result in two new variables
+
+```
+
+Men prefer Kit Kat, Women prefere Twix.
+
+
+## What was the most popular candy bar in each year?
+
+```{r}
+candy_bar_2015 <-  candy_data_2015 %>% 
+  filter(candy == c("100Grand Bar", "Any full-sized candy bar", "Bonkers",
+                   "Bonkers (the candy)", "Butterfinger", "Caramellos",
+                   "Dark Chocolate Hershey", "Dove Bars", "Heath Bar",
+                   "Hershey's Dark Chocolate", "Hershey’s Milk Chocolate",
+                   "Kinder Happy Hippo", "Kit Kat", "LaffyTaffy", "Mars",
+                   "Milky Way", "Mr. Goodbar", "Nestle Crunch",
+                   "Peanut Butter Bars", "Reggie Jackson Bar", "Snickers",
+                   "Take 5", "Three Musketeers", "Twix","Whatchamacallit Bars",
+                   "Starburst"
+                   )
+         )
+
+#I am reusing my candy bar selection from before for the 2015 data set
+
+candy_bar_2015_rating <- candy_bar_2015 %>%  
+  mutate(joy_or_despair = str_replace_all(joy_or_despair, "DESPAIR", "-1"),  
+         joy_or_despair = str_replace_all(joy_or_despair, "JOY", "1")) 
+
+#mutating the old grades to the new rating system
+# no MEH rating in 2015
+
+best_candy_bar_2015 <- candy_bar_2015_rating %>% 
+  group_by(candy) %>% 
+  filter(joy_or_despair == "1") %>% 
+  summarise(plus_one_count = n()) %>% 
+  arrange(desc(plus_one_count)) 
+
+#getting the most loved candy bar from 2015 and saving the result in a new variable 
+
+best_candy_bar_2015
+
+```
+In 2015 people loved any generic candy bar, but in particular Twix.
+
+```{r}
+
+#same process as above for 2016 and 2017
+
+candy_bar_2016 <-  candy_data_2016 %>% 
+  filter(candy == c("100Grand Bar", "Any full-sized candy bar", "Bonkers",
+                   "Bonkers (the candy)", "Butterfinger", "Caramellos",
+                   "Dark Chocolate Hershey", "Dove Bars", "Heath Bar",
+                   "Hershey's Dark Chocolate", "Hershey’s Milk Chocolate",
+                   "Kinder Happy Hippo", "Kit Kat", "LaffyTaffy", "Mars",
+                   "Milky Way", "Mr. Goodbar", "Nestle Crunch",
+                   "Peanut Butter Bars", "Reggie Jackson Bar", "Snickers",
+                   "Take 5", "Three Musketeers", "Twix","Whatchamacallit Bars",
+                   "Starburst"
+                   )
+         )
+
+candy_bar_2016_rating <- candy_bar_2016 %>%  
+  mutate(joy_or_despair = str_replace_all(joy_or_despair, "DESPAIR", "-1"),
+         joy_or_despair = str_replace_all(joy_or_despair, "MEH", "0"),  
+         joy_or_despair = str_replace_all(joy_or_despair, "JOY", "1")) 
+
+
+best_candy_bar_2016 <- candy_bar_2016_rating %>% 
+  group_by(candy) %>% 
+  filter(joy_or_despair == "1") %>% 
+  summarise(plus_one_count = n()) %>% 
+  arrange(desc(plus_one_count)) 
+
+best_candy_bar_2016
+```
+Twix, again in 2016, is everyone favorite.
+
+```{r}
+candy_bar_2017 <-  candy_data_2017 %>% 
+  filter(candy == c("100Grand Bar", "Any full-sized candy bar", "Bonkers",
+                   "Bonkers (the candy)", "Butterfinger", "Caramellos",
+                   "Dark Chocolate Hershey", "Dove Bars", "Heath Bar",
+                   "Hershey's Dark Chocolate", "Hershey’s Milk Chocolate",
+                   "Kinder Happy Hippo", "Kit Kat", "LaffyTaffy", "Mars",
+                   "Milky Way", "Mr. Goodbar", "Nestle Crunch",
+                   "Peanut Butter Bars", "Reggie Jackson Bar", "Snickers",
+                   "Take 5", "Three Musketeers", "Twix","Whatchamacallit Bars",
+                   "Starburst"
+                   )
+         )
+
+candy_bar_2017_rating <- candy_bar_2017 %>%  
+  mutate(joy_or_despair = str_replace_all(joy_or_despair, "DESPAIR", "-1"),
+         joy_or_despair = str_replace_all(joy_or_despair, "MEH", "0"),  
+         joy_or_despair = str_replace_all(joy_or_despair, "JOY", "1")) 
+
+
+best_candy_bar_2017 <- candy_bar_2017_rating %>% 
+  group_by(candy) %>% 
+  filter(joy_or_despair == "1") %>% 
+  summarise(plus_one_count = n()) %>% 
+  arrange(desc(plus_one_count)) 
+
+best_candy_bar_2017
+
+
+```
+
+It's 2017 and Twix is still the most loved candy bar.
+
+
+##What was the most popular candy bar by this rating for people in US, Canada, UK, and all other countries?
+
+```{r}
+candy_bar_rating_usa <- candy_bar_rating_score %>% 
+  filter(country == "USA")      
+
+#creating a new variable with stored all the rates for the USA
+
+best_candy_bar_usa <- candy_bar_rating_usa %>% 
+  filter(joy_or_despair == "1") %>% 
+  summarise(plus_one_count = n()) %>% 
+  arrange(desc(plus_one_count))
+
+# then getting the result for the most popular and storing the result in a new variable
+# same process below for Canada and UK
+
+best_candy_bar_usa
+
+```
+Kit-Kat is the most popular candy bar in US
+
+```{r}
+candy_bar_rating_canada <- candy_bar_rating_score %>% 
+  filter(country == "Canada")
+
+best_candy_bar_canada <- candy_bar_rating_canada %>% 
+  filter(joy_or_despair == "1") %>% 
+  summarise(plus_one_count = n()) %>% 
+  arrange(desc(plus_one_count))
+
+best_candy_bar_canada
+
+
+```
+Canada love Twix
+
+```{r}
+candy_bar_rating_uk <- candy_bar_rating_score %>% 
+  filter(country == "UK")
+
+best_candy_bar_uk <- candy_bar_rating_uk %>% 
+  filter(joy_or_despair == "1") %>% 
+  summarise(plus_one_count = n()) %>% 
+  arrange(desc(plus_one_count))
+
+best_candy_bar_uk
+
+
+
+```
+In UK Kinder Happy Hippo and Kit Kat share the first place.
+Kinder Happy Hippo enjoys more popularity in UK than over the pond.
+
+
+```{r}
+
+#now lets check the rest of the countries in the data set
+
+remove <- c("USA", "UK", "Canada") # creating a new variable called remove, this includes the countries I have already analysed 
+
+candy_bar_rating_score_world<- candy_bar_rating_score %>%
+  group_by(candy, country) %>% 
+  filter(!country %in% remove) %>% # using the variable (or pattern?) I have created above to exclude US, UK and Canada.
+  drop_na()
+
+#Saving everything in a new variable called candy_bar_rating_score_world
+
+#Proceeding with geeting the most popular candy bar:  
+
+candy_bar_rating_rest_of_the_world <- candy_bar_rating_score_world %>%  
+  filter(joy_or_despair == "1") %>% 
+  summarise(plus_one_count = n()) %>% 
+  arrange(desc(plus_one_count))
+
+candy_bar_rating_rest_of_the_world
+
+```
+
+Denmark, Mexico, Japan and Spain enjoy their Mars bars, Snicker and Twix.

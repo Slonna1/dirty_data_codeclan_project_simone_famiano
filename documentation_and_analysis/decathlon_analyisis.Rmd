@@ -1,0 +1,174 @@
+---
+title: "Decathlon analysis"
+output: html_notebook
+---
+Libraries I will be using:
+
+```{r}
+library(tidyverse)
+library(readr)
+library(here)
+library(stringr)
+```
+
+Reading the data
+
+```{r}
+decathlon_clean_data <- read_csv(here("clean_data/decathlon_data_clean.csv"))
+
+decathlon_clean_data
+
+```
+
+## Who had the longest long jump seen in the data?
+
+```{r}
+longest_jump <- decathlon_clean_data %>% 
+  filter(sport_rank_points == "long_jump") %>% #filtering to just result for long_jump
+  arrange(desc(score)) %>% 
+  top_n(1)
+
+longest_jump
+```
+
+Clay competing in the Olympic Games has the longest jump in the data with a score of 7.96
+
+##What was the average 100m time in each competition?
+
+```{r}
+decastar_100_meters <- decathlon_clean_data %>% 
+  filter(sport_rank_points == "100_meters", competition == "decastar")   
+
+#creating a new variable which includes just 100 meters result from the Decastar competition 
+  
+decastar_100_meters_avg <- mean(decastar_100_meters$score, na.rm = TRUE)
+
+#calculating the average
+
+decastar_100_meters_avg
+```
+Average 100m time for Decastar competion is 11.17538
+
+```{r}
+olympics_100_meters <- decathlon_clean_data %>% 
+  filter(sport_rank_points == "100_meters", competition == "olympic_games")   
+
+#creating a new variable which includes just 100 meters result from the Olympic Games competition 
+  
+olympics_100_meters_avg <- mean(olympics_100_meters$score, na.rm = TRUE)
+
+#calculating the average
+
+olympics_100_meters_avg
+
+```
+
+Average 100m time for Olympic Games competition is 10.91571
+
+##Who had the highest total points across both competitions?
+
+```{r}
+highest_total_points <- decathlon_clean_data %>%
+  filter(sport_rank_points == "points") %>% #filtering the total point for each athlete 
+
+highest_total_points
+
+```
+
+Sebrle has the highest high score across both competitioons. 
+
+##What was the shot-put scores for the top three competitors in each competition?
+
+Top three shot-put score for each competition:
+
+```{r}
+shot_put_scores_decastar <- decathlon_clean_data %>%
+  filter(sport_rank_points == "shot_put", competition == "decastar") %>% 
+  arrange(desc(score)) %>% 
+  top_n(3)
+  
+shot_put_scores_decastar
+```
+
+```{r}
+shot_put_scores_olympic_games <- decathlon_clean_data %>%
+  filter(sport_rank_points == "shot_put", competition == "olympic_games") %>% 
+  arrange(desc(score)) %>% 
+  top_n(3)
+  
+shot_put_scores_olympic_games
+```
+
+# Top three competitors in each competition shot_put score
+
+```{r}
+athletes_points <- decathlon_clean_data %>% #creating a data set with athletes points
+  filter(sport_rank_points == "points") %>% 
+  rename(points = score) %>% 
+  select("athlete","points")
+  
+shot_put_score <- decathlon_clean_data %>% #creating a data set with the athletes shot-put scores
+  filter(sport_rank_points == "shot_put") %>% 
+  rename(score_shot_put = score) %>% 
+  select("athlete", "competition", "score_shot_put")
+  
+shot_put_joined <-full_join(shot_put_score, athletes_points) #joining the two new dataset
+
+#getting the top 3 for each category:
+
+top_three_decastar <- shot_put_joined %>% 
+  filter(competition == "decastar") %>% 
+  arrange(desc(points)) %>% 
+  top_n(3)
+
+top_three_decastar
+
+top_three_olympics <- shot_put_joined %>% 
+  filter(competition == "olympic_games") %>% 
+  arrange(desc(points)) %>% 
+  top_n(3)
+
+top_three_olympics
+
+#it would have be best if I haven't included the points in the sport_rank_points column during the cleaning
+
+```
+
+Decastart Top 3 shot-put score :
+
+Sebrle	14.83		
+Clay	14.26		
+Karpov	14.77	
+
+Olympic Top 3 shot-put score
+
+Sebrle 16.36
+Macey	15.73	 	
+Clay 15.23	
+
+##What was the average points for competitors who ran the 400m in less than 50 seconds vs. those than ran 400m in more than 50 seconds?
+
+```{r}
+decathlon_400_m <- decathlon_clean_data %>% #creating a data set with 400 meters details 
+  filter(sport_rank_points == "400_meters")
+
+joined_400_m <- inner_join(decathlon_400_m, athletes_points) #joining the new data set with the athletes_points
+
+#getting the averages: 
+
+avg_points_less_50 <- joined_400_m %>% 
+  filter(score <= 50) %>% 
+  summarise(mean(points))
+
+avg_points_less_50
+
+avg_points_more_50 <- joined_400_m %>% 
+  filter(score >= 50) %>% 
+  summarise(mean(points))
+
+avg_points_more_50
+
+```
+
+Average points less than 50 is 8146.087	
+Average points more than 50 is 7766.385		
